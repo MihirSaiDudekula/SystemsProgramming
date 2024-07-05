@@ -15,6 +15,7 @@ struct Process {
 // Function to sort processes based on burst time (SJF)
 void sortProcessesByBurstTime(struct Process processes[], int n) {
     struct Process temp;
+    //bubble sort the array in ascending order of burst time
     for (int i = 0; i < n - 1; ++i) {
         for (int j = i + 1; j < n; ++j) {
             if (processes[i].burst_time > processes[j].burst_time) {
