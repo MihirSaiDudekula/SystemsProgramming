@@ -94,3 +94,77 @@ int main() {
 ```
 
 This code exemplifies the usage of `memcmp`, `memcpy`, `memset`, and `memchr` based on the lecture content, demonstrating their practical application in C programming.
+
+### Notes on "Difference between memmove and memcpy"
+
+**Introduction**
+
+- **Purpose**: Understand the distinction between **memmove** and **memcpy** in C, both used for memory manipulation.
+- **Similarities**: Both functions facilitate copying memory blocks.
+- **Key Difference**: Handling of overlapping memory regions.
+
+**Understanding memcpy**
+
+- **Function**: Copies a memory block from a source to a destination.
+- **Parameters**:
+  - Destination pointer: Where the copy starts (`*dest`).
+  - Source pointer: Where the copy data originates (`*src`).
+  - Size: Number of bytes to copy (`size_t n`).
+- **Example**:
+  - Copying "stop" to the beginning of a string (`memcpy(dest, src + 6, 4)`).
+  - Uses for contiguous memory blocks without overlap.
+
+**Understanding memmove**
+
+- **Function**: Also copies a memory block but handles overlapping regions.
+- **Parameters**:
+  - Destination pointer: Starting point for the move (`*dest`).
+  - Source pointer: Starting point from where data is moved (`*src`).
+  - Size: Number of bytes to move (`size_t n`).
+- **Example**:
+  - Moving "art" to the beginning of a string (`memmove(dest, src + 2, 3)`).
+  - Ensures proper handling even when source and destination overlap.
+
+**Technical Specifications**
+
+- **Buffer Usage**:
+  - **memcpy**: Directly copies data from source to destination.
+  - **memmove**: Copies data indirectly through a buffer, ensuring safe handling of overlaps.
+- **Compiler Variations**:
+  - Some compilers optimize memcpy to handle overlaps safely, but this isn't universal.
+  - memmove guarantees safe operation for overlapping memory regions according to C specifications.
+
+**Conclusion**
+
+- **Usage Guidelines**:
+  - Use **memcpy** for non-overlapping memory blocks.
+  - Use **memmove** when dealing with overlapping memory blocks to ensure data integrity.
+- **Compiler Considerations**:
+  - While some compilers may optimize memcpy for overlaps, memmove is explicitly designed for such scenarios and should be used for guaranteed safety.
+
+### Example Code
+
+```c
+#include <stdio.h>
+#include <string.h>
+
+int main() {
+    char str[] = "Hello world!";
+    printf("Original string: %s\n", str);
+
+    // Using memcpy
+    memcpy(str, str + 6, 4);
+    printf("After memcpy: %s\n", str);
+
+    // Using memmove
+    memmove(str, str + 2, 3);
+    printf("After memmove: %s\n", str);
+
+    return 0;
+}
+```
+
+**Additional Notes**
+- **Size Calculation**: Consider multiplying the size parameter by `sizeof(type)` for types larger than char (e.g., int).
+
+This summary provides a clear understanding of the differences between memcpy and memmove, highlighting their respective use cases and ensuring clarity on safe memory operations in C programming.
