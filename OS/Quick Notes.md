@@ -1463,3 +1463,431 @@ Here's a simple example to illustrate how two processes can communicate using a 
 - Data is written to the pipe by the parent process and read by the child process.
 
 This example demonstrates basic inter-process communication using a pipe in C. It shows how to set up the pipe, handle the fork, and manage the read and write operations in both the parent and child processes.
+
+### Notes on Getting Exit Status Code in C
+
+**Overview**
+
+This lecture discusses how to obtain and interpret the exit status code of a program executed using `exec` in a C program, specifically focusing on scenarios involving the `ping` program.
+
+**Using Fork to Execute Programs**
+
+- **Fork Mechanism**: Used to create a child process which can execute the `ping` program while the parent process waits.
+- **Execution**: Child process executes `ping` program, parent process waits for completion.
+
+**Handling Exit Status**
+
+- **Understanding `exec` Return Value**:
+  - `exec` function returns `-1` if it fails to find the program to execute (`ping` in this case).
+  - Parent process can check this return value to handle errors.
+
+```c
+int error = exec(...);
+if (error == -1) {
+    printf("Could not find program to execute.\n");
+    return 0;
+}
+```
+
+- **Differentiating Errors**:
+  - If `ping` program does not exist, `exec` returns `-1`.
+  - If `ping` program executes but encounters an error (like incorrect domain), parent process still continues.
+
+**Using `wait` Function**
+
+- **Waiting for Child Process**:
+  - `wait` function returns status information in `WSTATUS` parameter.
+
+```c
+int wstatus;
+wait(&wstatus);
+```
+
+- **Macros for Checking Status**:
+  - `WIFEXITED`: Checks if child process terminated normally.
+  - `WEXITSTATUS`: Retrieves the exit status code of the child process.
+
+```c
+if (WIFEXITED(wstatus)) {
+    int status_code = WEXITSTATUS(wstatus);
+    if (status_code == 0) {
+        printf("Success: Ping executed properly.\n");
+    } else {
+        printf("Failure: Ping did not execute properly. Status code: %d\n", status_code);
+    }
+}
+```
+
+**Conclusion**
+
+- **Interpreting Status Codes**:
+  - Status code `0` indicates successful execution.
+  - Non-zero status codes signify errors or specific conditions depending on the program.
+
+**Example Code**
+
+```c
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+
+int main() {
+    pid_t pid = fork();
+
+    if (pid == 0) {
+        // Child process
+        int error = execl("/bin/ping", "ping", "google.com", NULL);
+        if (error == -1) {
+            printf("Could not find program to execute.\n");
+            return 0;
+        }
+    } else if (pid > 0) {
+        // Parent process
+        int wstatus;
+        wait(&wstatus);
+
+        if (WIFEXITED(wstatus)) {
+            int status_code = WEXITSTATUS(wstatus);
+            if (status_code == 0) {
+                printf("Success: Ping executed properly.\n");
+            } else {
+                printf("Failure: Ping did not execute properly. Status code: %d\n", status_code);
+            }
+        }
+    } else {
+        // Fork failed
+        perror("Fork failed");
+        return 1;
+    }
+
+    return 0;
+}
+```
+
+This code demonstrates how to execute the `ping` program and retrieve its exit status in a parent process using `fork`, `exec`, and `wait` functions in C.
+
+
+The `wstatus` variable, when used with the `wait` function in Unix-like operating systems, can have various possible values depending on the state and outcome of the child process. Here are the possible values and their meanings:
+
+1. **Normal Termination**:
+   - If the child process terminates normally (i.e., it calls `exit()` or returns from `main()`), `wait` sets `wstatus` to a value that indicates normal termination.
+   - `WIFEXITED(wstatus)` will return true, indicating that the child process exited normally.
+   - `WEXITSTATUS(wstatus)` will return the exit status code of the child process. This is typically a value between 0 and 255, where 0 usually indicates success.
+
+2. **Termination Due to Signal**:
+   - If the child process terminates due to receiving a signal (such as `SIGTERM`, `SIGSEGV`, etc.), `wait` sets `wstatus` to indicate termination by signal.
+   - `WIFSIGNALED(wstatus)` will return true, indicating that the child process terminated due to a signal.
+   - `WTERMSIG(wstatus)` will return the number of the signal that caused the termination.
+
+3. **Stopped or Continued State**:
+   - If the child process is stopped by a signal (`SIGSTOP`, `SIGTSTP`, etc.) or continued (`SIGCONT`), `wait` can set `wstatus` to indicate these states.
+   - `WIFSTOPPED(wstatus)` will return true if the child process is currently stopped.
+   - `WSTOPSIG(wstatus)` will return the number of the signal that caused the process to stop.
+   - `WIFCONTINUED(wstatus)` will return true if the child process was continued after being stopped.
+
+These macros (`WIFEXITED`, `WEXITSTATUS`, `WIFSIGNALED`, `WTERMSIG`, `WIFSTOPPED`, `WSTOPSIG`, `WIFCONTINUED`) are defined in `<sys/wait.h>` and are used to interpret the value of `wstatus` returned by `wait`.
+
+**Summary of Possible Values**:
+- If `WIFEXITED(wstatus)` is true, `wstatus` contains `WEXITSTATUS(wstatus)`.
+- If `WIFSIGNALED(wstatus)` is true, `wstatus` contains `WTERMSIG(wstatus)`.
+- If `WIFSTOPPED(wstatus)` is true, `wstatus` contains `WSTOPSIG(wstatus)`.
+- `WIFCONTINUED(wstatus)` indicates if the child process was continued after being stopped.
+
+These values help in determining the exact condition under which the child process terminated or its current state, providing valuable information for handling processes in Unix-based systems.
+
+
+### Understanding Standard Input and Standard Output in C
+
+In C programming, **standard input** (`stdin`) and **standard output** (`stdout`) are fundamental concepts for handling input from the user and outputting data to the screen or other devices. These are provided by the operating system and are crucial for interacting with a program during its execution.
+
+#### 1. Standard Input (`stdin`)
+- `stdin` is a standard input stream where a program reads input from the user or from another program.
+
+##### Key Points:
+- By default, `stdin` is typically associated with the keyboard input.
+- It is represented by the macro `stdin` in C.
+- It is buffered, meaning input is read in chunks rather than one character at a time.
+
+Buffering: In the context of stdin, buffering means that input is collected in memory in chunks rather than being read character by character. This improves efficiency by reducing the number of system calls and speeding up input operations.
+
+Line Buffering: By default, stdin is typically line-buffered, meaning input is processed line by line. This means that input is stored in a buffer until a newline character (\n) is encountered, at which point the entire line is passed to the program.
+
+##### Example:
+```c
+#include <stdio.h>
+
+int main() {
+    char input[100];
+
+    printf("Enter your name: ");
+    fgets(input, sizeof(input), stdin); // Read input from stdin
+
+    printf("Hello, %s", input);
+
+    return 0;
+}
+```
+- **Explanation**:
+  - `fgets(input, sizeof(input), stdin);` reads a line of input from `stdin` (keyboard) into the `input` array.
+  - The `fgets` function reads until a newline (`\n`) or EOF (End of File) is encountered, storing the input in `input`.
+
+#### 2. Standard Output (`stdout`)
+- `stdout` is a standard output stream where a program writes its output, typically to the console or terminal.
+
+##### Key Points:
+- By default, `stdout` is associated with the screen.
+- It is represented by the macro `stdout` in C.
+- It is also buffered, meaning output is collected in chunks and displayed.
+
+##### Example:
+```c
+#include <stdio.h>
+
+int main() {
+    int number = 42;
+
+    printf("The answer is: %d\n", number); // Output to stdout
+
+    return 0;
+}
+```
+- **Explanation**:
+  - `printf("The answer is: %d\n", number);` outputs the formatted string and value of `number` to `stdout`.
+
+#### File Descriptors and Standard Streams
+- In C, standard input (`stdin`), standard output (`stdout`), and standard error (`stderr`) are represented by file descriptors:
+  - `STDIN_FILENO` (0): Standard input file descriptor.
+  - `STDOUT_FILENO` (1): Standard output file descriptor.
+  - `STDERR_FILENO` (2): Standard error output file descriptor.
+
+##### Example of using File Descriptors:
+```c
+#include <unistd.h>
+#include <fcntl.h>
+#include <stdio.h>
+
+int main() {
+    char buffer[100];
+    ssize_t bytes_read;
+
+    // Read from stdin using file descriptor
+    bytes_read = read(STDIN_FILENO, buffer, sizeof(buffer));
+    if (bytes_read == -1) {
+        perror("Error reading from stdin");
+        return 1;
+    }
+
+    // Write to stdout using file descriptor
+    ssize_t bytes_written = write(STDOUT_FILENO, buffer, bytes_read);
+    if (bytes_written == -1) {
+        perror("Error writing to stdout");
+        return 1;
+    }
+
+    return 0;
+}
+```
+- **Explanation**:
+  - `read(STDIN_FILENO, buffer, sizeof(buffer));` reads input directly from `stdin` using its file descriptor.
+  - `write(STDOUT_FILENO, buffer, bytes_read);` writes the contents of `buffer` (read from `stdin`) directly to `stdout`.
+
+#### Conclusion
+Understanding `stdin` and `stdout` is crucial for handling input and output operations in C. These standard streams provide a simple yet powerful way to interact with users and display information, making C programs versatile in their ability to handle various input and output scenarios.
+
+
+### Title: Redirecting standard output in C
+
+#### Overview
+In this tutorial, we continue with our previous program, focusing on redirecting the standard output (**stdout**) of a program in C to a file. This technique allows us to capture program output into a designated file instead of displaying it on the terminal.
+
+#### Problem Statement
+Currently, when we execute our program, the output appears directly on the terminal. However, we only need to know if the operation was successful, without displaying specific messages.
+
+#### Solution Approach
+To redirect the output to a file in Linux, we follow these steps:
+
+1. **Create a File**: Use the `open()` function to create or open a file. The file will store the redirected output.
+   ```c
+   #include <fcntl.h>
+   int file = open("ping_results.txt", O_WRONLY | O_CREAT, 0777);
+   ```
+
+   - **Explanation**: 
+     - `O_WRONLY`: Opens the file for writing only.
+     - `O_CREAT`: Creates the file if it doesn't exist.
+     - `0777`: Sets permissions for the file (read, write, execute for all).
+
+2. **Error Handling**: Check if the file descriptor is valid (`file == -1` indicates an error).
+
+3. **Redirect Output**: Use the `dup2()` function to redirect `stdout` to the file descriptor obtained from `open()`.
+   ```c
+   dup2(file, STDOUT_FILENO);
+   ```
+
+   - **Explanation**:
+     - `dup2()` duplicates the file descriptor (`file`) onto `STDOUT_FILENO` (standard output).
+
+4. **Close Unused File Descriptor**: Close the original file descriptor if it's not needed anymore.
+   ```c
+   close(file);
+   ```
+
+#### File Descriptor Basics
+- **File Descriptor**: A unique identifier for an open file within a process.
+- **Standard File Descriptors in Linux**:
+  - `STDIN_FILENO`: Standard input (0)
+  - `STDOUT_FILENO`: Standard output (1)
+  - `STDERR_FILENO`: Standard error (2)
+
+#### Conclusion
+By redirecting standard output to a file in C, we can control where program output is displayed, facilitating cleaner program execution without unnecessary terminal output.
+
+#### Example Code
+```c
+#include <fcntl.h>
+#include <stdio.h>
+#include <unistd.h>
+
+int main() {
+    // Open or create ping_results.txt for writing
+    int file = open("ping_results.txt", O_WRONLY | O_CREAT, 0777);
+
+    // Check for errors in opening file
+    if (file == -1) {
+        perror("Error opening file");
+        return 1;
+    }
+
+    // Redirect stdout to the file descriptor 'file'
+    dup2(file, STDOUT_FILENO);
+
+    // Close the original file descriptor (optional)
+    close(file);
+
+    // Now stdout is redirected to ping_results.txt
+    // Execute your program here
+
+    return 0;
+}
+```
+
+This approach ensures that all output generated by the program is directed into `ping_results.txt` instead of being displayed on the terminal, achieving our goal of controlling program output location.
+
+### Explanation of `dup()` and `dup2()` in C
+
+In C programming, `dup()` and `dup2()` are functions used to duplicate file descriptors. They are particularly useful for redirecting input and output streams in Unix-like operating systems. Here's a simplified explanation of each function with example code.
+
+#### 1. `dup()`
+
+- **Purpose**: `dup()` duplicates an existing file descriptor and returns a new file descriptor that refers to the same file or device.
+
+- **Prototype**: `int dup(int oldfd);`
+
+- **Parameters**:
+  - `oldfd`: The file descriptor to be duplicated.
+
+- **Return Value**:
+  - Returns a new file descriptor if successful (which is the lowest available descriptor number greater than or equal to `0`).
+  - `-1` if an error occurs.
+
+- **Example**:
+  
+  ```c
+  #include <stdio.h>
+  #include <unistd.h>
+  #include <fcntl.h>
+
+  int main() {
+      int fd = open("output.txt", O_WRONLY | O_CREAT, 0644);
+      if (fd == -1) {
+          perror("Error opening file");
+          return 1;
+      }
+
+      // Duplicate the file descriptor 'fd'
+      int new_fd = dup(fd);
+      if (new_fd == -1) {
+          perror("Error duplicating file descriptor");
+          return 1;
+      }
+
+      // Now both 'fd' and 'new_fd' refer to the same file
+
+      // Write to the original file descriptor
+      dprintf(fd, "Hello from original fd!\n");
+
+      // Write to the duplicated file descriptor
+      dprintf(new_fd, "Hello from duplicated fd!\n");
+
+      // Close both file descriptors
+      close(fd);
+      close(new_fd);
+
+      return 0;
+  }
+  ```
+
+  - **Explanation**: 
+    - `open("output.txt", O_WRONLY | O_CREAT, 0644);` opens a file for writing (`O_WRONLY`) and creates it if it doesn't exist (`O_CREAT`).
+    - `dup(fd);` duplicates the file descriptor `fd`, creating `new_fd`.
+    - `dprintf(fd, ...);` and `dprintf(new_fd, ...);` both write to the same file (`output.txt`) because they refer to the same underlying file descriptor.
+    - Closing both file descriptors (`close(fd);` and `close(new_fd);`) ensures proper cleanup.
+
+#### 2. `dup2()`
+
+- **Purpose**: `dup2()` duplicates an existing file descriptor to a specified file descriptor number, allowing redirection of file descriptors.
+
+- **Prototype**: `int dup2(int oldfd, int newfd);`
+
+- **Parameters**:
+  - `oldfd`: The file descriptor to be duplicated.
+  - `newfd`: The file descriptor number to which `oldfd` should be duplicated.
+
+- **Return Value**:
+  - Returns `newfd` if successful.
+  - `-1` if an error occurs.
+
+- **Example**:
+  
+  ```c
+  #include <stdio.h>
+  #include <unistd.h>
+  #include <fcntl.h>
+
+  int main() {
+      int fd = open("output.txt", O_WRONLY | O_CREAT, 0644);
+      if (fd == -1) {
+          perror("Error opening file");
+          return 1;
+      }
+
+      // Duplicate 'fd' to file descriptor 1 (STDOUT_FILENO)
+      int result = dup2(fd, STDOUT_FILENO);
+      if (result == -1) {
+          perror("Error duplicating file descriptor");
+          return 1;
+      }
+
+      // Now STDOUT_FILENO (1) points to 'output.txt'
+
+      // Write to STDOUT_FILENO (which now points to 'output.txt')
+      printf("Hello from stdout redirected to output.txt\n");
+
+      // Close the original file descriptor
+      close(fd);
+
+      return 0;
+  }
+  ```
+
+  - **Explanation**:
+    - `open("output.txt", O_WRONLY | O_CREAT, 0644);` opens `output.txt` for writing.
+    - `dup2(fd, STDOUT_FILENO);` duplicates `fd` (output file descriptor) to `STDOUT_FILENO` (standard output).
+    - `printf(...);` writes output to `STDOUT_FILENO`, which is redirected to `output.txt`.
+    - Closing the original file descriptor (`close(fd);`) ensures proper cleanup.
+
+#### Conclusion
+
+`dup()` and `dup2()` are powerful functions in C for manipulating file descriptors, allowing programs to manage input and output redirection efficiently. They are essential for tasks such as implementing shell pipelines, redirecting standard input/output/error, and handling file operations in Unix-like systems. Understanding their usage is fundamental for advanced C programming, especially in contexts involving system-level programming and file management.
