@@ -333,6 +333,92 @@ int main() {
 }
 ```
 
+### How to Execute Another Program in C (using exec)
+
+To execute another program from within your C program, you can use the **exec** family of functions. These functions are standard in Linux and have an emulation in Windows, providing similar functionality.
+
+#### Step-by-Step Guide:
+
+1. **Include the Header File**:
+   - For Windows: `#include <process.h>`
+   - For Linux: `#include <unistd.h>`
+
+2. **Choose the Exec Function**:
+   - `exec` functions come in several variants:
+     - `execl`, `execv`: Takes a list or vector of arguments.
+     - `execle`, `execve`: Include an environment variable.
+     - `execlp`, `execvp`: Uses the system’s PATH environment variable.
+
+3. **Example Using `execlp`**:
+   - This variant allows using the system's PATH variable.
+   - Example: Executing the `ping` command.
+     ```c
+     execlp("ping", "ping", "google.com", NULL);
+     ```
+
+   - Parameters breakdown:
+     - First `"ping"`: Command name or program to execute.
+     - Second `"ping"`: Argument passed to the program.
+     - Third `google.com`: Additional arguments.
+     - Fourth `NULL`: End of argument list.
+
+4. **Understanding Execution Flow**:
+   - After calling an `exec` function, the current process is replaced by the new process (e.g., `ping` in this case).
+   - Any code following the `exec` call will not execute unless the `exec` call fails.
+
+5. **Handling Errors**:
+   - Check the return value of `exec` functions (typically `-1` on failure).
+   - Use `errno` to diagnose specific errors.
+     ```c
+     #include <errno.h>
+     if (execvp("ping", args) == -1) {
+         perror("execvp failed");
+         exit(EXIT_FAILURE);
+     }
+     ```
+
+6. **Code Example**:
+   - Combining all the above concepts:
+     ```c
+     #include <stdio.h>
+     #include <stdlib.h>
+     #include <unistd.h>
+     #include <errno.h>
+     int main() {
+         printf("Executing ping google.com...\n");
+         if (execlp("ping", "ping", "google.com", NULL) == -1) {
+             perror("execvp failed");
+             exit(EXIT_FAILURE);
+         }
+         printf("Program finished executing.\n");
+         return 0;
+     }
+     ```
+
+### Conclusion
+
+Using the **exec** functions allows your C program to execute external programs efficiently. Ensure to handle errors properly using `errno` and consider which `exec` variant suits your needs based on argument passing and environment requirements. These functions are essential for integrating system commands into your C applications seamlessly.
+
+#### Generated Code Example:
+```c
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <errno.h>
+
+int main() {
+    printf("Executing ping google.com...\n");
+    if (execlp("ping", "ping", "google.com", NULL) == -1) {
+        perror("execvp failed");
+        exit(EXIT_FAILURE);
+    }
+    printf("Program finished executing.\n");
+    return 0;
+}
+```
+
+This code snippet demonstrates executing the `ping` command with `google.com` as an argument using `execlp`. Ensure to compile and run this on a system where `ping` is available in the PATH variable for successful execution.
+
 ### Understanding Zombie Processes
 
 **Introduction to Processes:**
@@ -657,6 +743,112 @@ int main() {
 ```
 
 #### `mmap`
+
+## Understanding the `mmap` System Call
+
+### What is `mmap`?
+The `mmap` (memory map) system call is used to map files or devices into memory. It provides a way for applications to access file contents by mapping them into the virtual address space of the process.
+
+### Why Use `mmap`?
+1. **Efficient File Access**: Allows applications to read and write files as if they were in memory, which can be faster than traditional I/O operations.
+2. **Memory Sharing**: Can be used to share memory between processes.
+3. **Memory-Mapped Files**: Useful for applications that need to access large files, like databases.
+
+### Basic Concepts
+- **Memory Mapping**: Associating a file or device with a range of addresses in the application's address space.
+- **Virtual Address Space**: The range of addresses that an application can use, which is managed by the operating system.
+
+### Syntax of `mmap`
+Here's the basic syntax of the `mmap` system call in C:
+```c
+void *mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset);
+```
+
+### Parameters
+- `addr`: Starting address for the new mapping. `NULL` lets the system choose the address.
+- `length`: Number of bytes to be mapped.
+- `prot`: Memory protection of the mapping. Common options include:
+  - `PROT_READ`: Pages can be read.
+  - `PROT_WRITE`: Pages can be written.
+  - `PROT_EXEC`: Pages can be executed.
+  - `PROT_NONE`: Pages cannot be accessed.
+- `flags`: Determines the nature of the mapping. Common options include:
+  - `MAP_SHARED`: Changes are shared.
+  - `MAP_PRIVATE`: Changes are private (copy-on-write).
+- `fd`: File descriptor of the file to be mapped.
+- `offset`: Offset in the file where the mapping starts.
+
+### Example Code
+Here's a simple example to illustrate how `mmap` can be used to map a file into memory and read its contents.
+
+1. **Include Necessary Headers**
+   ```c
+   #include <stdio.h>
+   #include <stdlib.h>
+   #include <fcntl.h>
+   #include <sys/mman.h>
+   #include <sys/stat.h>
+   #include <unistd.h>
+   ```
+
+2. **Example Function Using `mmap`**
+   ```c
+   int main() {
+       // Open the file
+       int fd = open("example.txt", O_RDONLY);
+       if (fd == -1) {
+           perror("Error opening file");
+           exit(EXIT_FAILURE);
+       }
+
+       // Get the size of the file
+       struct stat st;
+       if (fstat(fd, &st) == -1) {
+           perror("Error getting file size");
+           close(fd);
+           exit(EXIT_FAILURE);
+       }
+       size_t filesize = st.st_size;
+
+       // Map the file into memory
+       char *mapped = mmap(NULL, filesize, PROT_READ, MAP_PRIVATE, fd, 0);
+       if (mapped == MAP_FAILED) {
+           perror("Error mapping file");
+           close(fd);
+           exit(EXIT_FAILURE);
+       }
+
+       // Close the file descriptor
+       close(fd);
+
+       // Use the mapped memory (e.g., print the file contents)
+       for (size_t i = 0; i < filesize; ++i) {
+           putchar(mapped[i]);
+       }
+
+       // Unmap the file
+       if (munmap(mapped, filesize) == -1) {
+           perror("Error unmapping file");
+           exit(EXIT_FAILURE);
+       }
+
+       return 0;
+   }
+   ```
+
+### Explanation of the Example
+1. **Opening the File**: The file `example.txt` is opened using the `open` system call with read-only permissions (`O_RDONLY`).
+2. **Getting File Size**: The `fstat` function retrieves the size of the file.
+3. **Mapping the File**: The `mmap` function maps the file into memory with read-only access (`PROT_READ`) and private mapping (`MAP_PRIVATE`).
+4. **Using the Mapped Memory**: The contents of the file are printed using `putchar`.
+5. **Unmapping the File**: The `munmap` function unmaps the file from memory.
+
+### Summary
+- **`mmap`** maps files or devices into memory, providing an efficient way to read and write files.
+- The **parameters** of `mmap` control the starting address, length, protection, flags, file descriptor, and offset.
+- The **example** demonstrates opening a file, mapping it into memory, reading its contents, and unmapping it.
+
+This explanation should help an absolute beginner understand the basics of the `mmap` system call and how to use it in a simple program.
 
 The `mmap` system call maps files or devices into memory. It can be used to allocate memory by mapping anonymous pages (i.e., pages not associated with any file).
 
@@ -1185,4 +1377,89 @@ int main() {
 
 This code effectively demonstrates two-way communication using pipes in C between a parent and child process, ensuring reliable data exchange without blocking issues.
 
-up next - codevault c/os playlist vid 7 onw
+## Communication Between Two Processes Using `pipe()` in C
+
+### Introduction
+**Pipes** are a form of inter-process communication (IPC) that allow data to be passed from one process to another. The `pipe()` system call in C creates a unidirectional data channel that can be used for this purpose.
+
+### Key Concepts
+- **Pipe**: A pipe is a conduit for data flow between processes. Data written to the pipe by one process can be read by another process.
+- **Unidirectional**: Data flows in only one direction, from the write end to the read end.
+
+### Syntax of `pipe()`
+```c
+int pipe(int pipefd[2]);
+```
+- `pipefd`: An array of two integers. `pipefd[0]` is the read end and `pipefd[1]` is the write end of the pipe.
+
+### Example Program
+Here's a simple example to illustrate how two processes can communicate using a pipe in C.
+
+1. **Include Necessary Headers**
+   ```c
+   #include <stdio.h>
+   #include <stdlib.h>
+   #include <unistd.h>
+   #include <string.h>
+   ```
+
+2. **Example Function Using `pipe()`**
+   ```c
+   int main() {
+       int pipefd[2]; // Array to hold pipe ends
+       pid_t pid;
+       char write_msg[] = "Hello from parent process!";
+       char read_msg[100];
+
+       // Create the pipe
+       if (pipe(pipefd) == -1) {
+           perror("pipe");
+           exit(EXIT_FAILURE);
+       }
+
+       // Fork a new process
+       pid = fork();
+
+       if (pid < 0) {
+           perror("fork");
+           exit(EXIT_FAILURE);
+       }
+
+       if (pid > 0) { // Parent process
+           close(pipefd[0]); // Close unused read end
+
+           // Write to the pipe
+           write(pipefd[1], write_msg, strlen(write_msg) + 1);
+           close(pipefd[1]); // Close write end after writing
+       } else { // Child process
+           close(pipefd[1]); // Close unused write end
+
+           // Read from the pipe
+           read(pipefd[0], read_msg, sizeof(read_msg));
+           printf("Child process read: %s\n", read_msg);
+           close(pipefd[0]); // Close read end after reading
+       }
+
+       return 0;
+   }
+   ```
+
+### Explanation of the Example
+1. **Create the Pipe**: The `pipe(pipefd)` function creates a pipe. `pipefd[0]` is the read end, and `pipefd[1]` is the write end.
+2. **Fork a New Process**: The `fork()` function creates a new process. The return value of `fork()` helps determine whether the current process is the parent or the child.
+3. **Parent Process**:
+   - Closes the read end of the pipe (`close(pipefd[0])`).
+   - Writes a message to the pipe (`write(pipefd[1], write_msg, strlen(write_msg) + 1)`).
+   - Closes the write end of the pipe after writing (`close(pipefd[1])`).
+4. **Child Process**:
+   - Closes the write end of the pipe (`close(pipefd[1])`).
+   - Reads the message from the pipe (`read(pipefd[0], read_msg, sizeof(read_msg))`).
+   - Prints the message read from the pipe (`printf("Child process read: %s\n", read_msg)`).
+   - Closes the read end of the pipe after reading (`close(pipefd[0])`).
+
+### Summary
+- **Pipes** are used for unidirectional communication between processes.
+- The `pipe()` system call creates a pipe, and `fork()` creates a new process.
+- Data is written to the pipe by the parent process and read by the child process.
+
+This example demonstrates basic inter-process communication using a pipe in C. It shows how to set up the pipe, handle the fork, and manage the read and write operations in both the parent and child processes.
