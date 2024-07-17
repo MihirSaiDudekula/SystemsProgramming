@@ -27,6 +27,18 @@ int main() {
     } else {
         printf("Did not find the byte\n");
     }
+
+    char str[] = "Hello world!";
+    printf("Original string: %s\n", str);
+
+    // Using memcpy
+    memcpy(str, str + 6, 4);
+    printf("After memcpy: %s\n", str);
+
+    // Using memmove
+    memmove(str, str + 2, 3);
+    printf("After memmove: %s\n", str);
+
     
     return 0;
 }
