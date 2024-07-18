@@ -1891,3 +1891,78 @@ In C programming, `dup()` and `dup2()` are functions used to duplicate file desc
 #### Conclusion
 
 `dup()` and `dup2()` are powerful functions in C for manipulating file descriptors, allowing programs to manage input and output redirection efficiently. They are essential for tasks such as implementing shell pipelines, redirecting standard input/output/error, and handling file operations in Unix-like systems. Understanding their usage is fundamental for advanced C programming, especially in contexts involving system-level programming and file management.
+
+### What is waitpid?
+
+**Overview**
+
+Waitpid is a function in C programming that allows a process to wait for a specific child process to finish executing, rather than waiting for any child process to complete.
+
+**Functionality**
+
+- Instead of waiting for any child process, **waitpid** waits for a specific child process identified by its process ID (**pid**).
+- It provides more control over which child process to wait for, enhancing flexibility in process management.
+
+**Example Usage**
+
+To illustrate its use, consider the following scenario:
+
+```c
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/wait.h>
+
+int main() {
+    pid_t pid1, pid2;
+    int status;
+
+    // Create first child process
+    if ((pid1 = fork()) == 0) {
+        // Child process 1
+        sleep(4);
+        printf("Finished execution (%d)\n", getpid());
+        exit(1);
+    }
+
+    // Create second child process
+    if ((pid2 = fork()) == 0) {
+        // Child process 2
+        sleep(1);
+        printf("Finished execution (%d)\n", getpid());
+        exit(2);
+    }
+
+    // Wait for child processes to finish
+    int pid1_result = waitpid(pid1, &status, 0);
+    printf("Waited for %d\n", pid1_result);
+
+    int pid2_result = waitpid(pid2, &status, 0);
+    printf("Waited for %d\n", pid2_result);
+
+    return 0;
+}
+```
+
+**Explanation**
+
+- **waitpid(pid, status, options)**:
+  - **pid**: Process ID of the child process to wait for. Use specific process IDs to target particular child processes.
+  - **status**: Pointer to an integer where the exit status of the child process will be stored.
+  - **options**: Additional flags that control the behavior of waiting. For instance, passing 0 indicates normal behavior.
+
+**Advanced Usage**
+
+- **Negative pid values**: 
+  - If **pid** is negative, **waitpid** waits for any child process whose process group ID matches the absolute value of pid.
+
+- **Options**:
+  - **WNOHANG**: If set, **waitpid** returns immediately instead of waiting if no child process has terminated yet.
+
+**Conclusion**
+
+Waitpid offers precise control over process synchronization in multi-process applications, making it useful for scenarios where specific child processes need to be managed independently.
+
+---
+
+By utilizing **waitpid**, developers can manage child processes more effectively in C programs, ensuring synchronized execution and proper resource handling.
