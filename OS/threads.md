@@ -612,3 +612,282 @@ int main() {
 
 By using `malloc`, each thread gets a separate copy of the argument, ensuring that there is no shared memory issue, and each thread works with the correct index value.
 
+### Notes on "Difference between trylock and lock in C"
+
+**Overview:**
+The discussion focuses on the differences between `pthread_mutex_lock` and `pthread_mutex_trylock` functions in C, specifically regarding their behavior in managing mutexes.
+
+**pthread_mutex_lock:**
+- Used to acquire a mutex lock.
+- **Blocks** the calling thread if the mutex is already locked by another thread.
+- Ensures mutual exclusion.
+- Example:
+  ```c
+  pthread_mutex_lock(&mutex);
+  // Critical section
+  pthread_mutex_unlock(&mutex);
+  ```
+
+**Behavior Example:**
+- Creates four threads, each attempting to lock the mutex.
+- Only one thread successfully acquires the lock at a time.
+- Others wait until the mutex is unlocked.
+- Shows sequential execution of "got lock" messages.
+
+**pthread_mutex_trylock:**
+- Attempts to acquire a mutex lock **without blocking**.
+- Returns immediately:
+  - **Returns 0** if the lock is acquired successfully.
+  - **Returns EBUSY (16)** if the mutex is already locked.
+- Requires checking the return value to determine success.
+- Example:
+  ```c
+  if (pthread_mutex_trylock(&mutex) == 0) {
+      // Critical section
+      pthread_mutex_unlock(&mutex);
+  } else {
+      printf("Didn't get the lock\n");
+  }
+  ```
+
+**Comparison:**
+- **pthread_mutex_lock** waits until the lock is acquired.
+- **pthread_mutex_trylock** returns immediately with a result indicating success or failure.
+- Suitable for scenarios where immediate action is needed or handling alternatives if lock is unavailable.
+
+**Conclusion:**
+- `pthread_mutex_lock` guarantees lock acquisition but may block.
+- `pthread_mutex_trylock` attempts immediate lock acquisition and returns a result indicating success or failure.
+
+**Example Implementation:**
+```c
+#include <pthread.h>
+#include <stdio.h>
+#include <unistd.h>
+
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+
+void *thread_function(void *arg) {
+    if (pthread_mutex_trylock(&mutex) == 0) {
+        printf("Got the lock\n");
+        // Simulate time-consuming task
+        sleep(1);
+        pthread_mutex_unlock(&mutex);
+    } else {
+        printf("Didn't get the lock\n");
+    }
+    return NULL;
+}
+
+int main() {
+    pthread_t threads[4];
+    int i;
+    for (i = 0; i < 4; i++) {
+        pthread_create(&threads[i], NULL, thread_function, NULL);
+    }
+    for (i = 0; i < 4; i++) {
+        pthread_join(threads[i], NULL);
+    }
+    return 0;
+}
+```
+
+**Analysis:**
+- `pthread_mutex_lock` ensures synchronized access but may delay execution.
+- `pthread_mutex_trylock` provides immediate feedback, useful for non-blocking scenarios.
+
+**Additional Notes:**
+- Understanding these functions is crucial for efficient resource management in concurrent programming.
+
+### Advanced Notes on Condition Variables in C
+
+**Introduction to Condition Variables:**
+
+Condition variables in C, part of the pthread API, facilitate synchronization between threads based on certain conditions rather than simple locks.
+
+**Scenario Introduction:**
+
+Imagine a gas station simulation where one thread fuels the station (`fuel_filling`), and another thread waits to fuel its car (`car_waiting`). The goal is to coordinate these actions using condition variables.
+
+**Initial Setup:**
+
+- **Global Variables:**
+  - `fuel`: Initialized to 0, representing the amount of fuel available.
+  
+- **Mutex Initialization:**
+  - A mutex (`mutex_fuel`) is created to ensure thread-safe access to `fuel`.
+
+```c
+pthread_mutex_t mutex_fuel = PTHREAD_MUTEX_INITIALIZER;
+int fuel = 0;
+```
+
+**Thread Creation:**
+
+Two threads are created using `pthread_create`:
+- One for `fuel_filling`
+- Another for `car_waiting`
+
+```c
+pthread_t threads[2];
+
+for (int i = 0; i < 2; ++i) {
+    if (i == 0)
+        pthread_create(&threads[i], NULL, fuel_filling, NULL);
+    else
+        pthread_create(&threads[i], NULL, car_waiting, NULL);
+}
+
+for (int i = 0; i < 2; ++i) {
+    pthread_join(threads[i], NULL);
+}
+```
+
+**Fuel Filling Thread (`fuel_filling`):**
+
+This thread increments `fuel` by 15 units, simulating fueling.
+
+```c
+void *fuel_filling(void *arg) {
+    for (int i = 0; i < 5; ++i) {
+        pthread_mutex_lock(&mutex_fuel);
+        fuel += 15;
+        printf("Filling fuel: %d\n", fuel);
+        pthread_mutex_unlock(&mutex_fuel);
+        sleep(1); // Simulating a break after each fill
+    }
+    return NULL;
+}
+```
+
+**Car Waiting Thread (`car_waiting`):**
+
+This thread decrements `fuel` by 40 units when there's enough fuel available.
+
+```c
+void *car_waiting(void *arg) {
+    while (fuel < 40) {
+        printf("No fuel, waiting...\n");
+        sleep(1);
+    }
+    pthread_mutex_lock(&mutex_fuel);
+    fuel -= 40;
+    printf("Got fuel, remaining: %d\n", fuel);
+    pthread_mutex_unlock(&mutex_fuel);
+    return NULL;
+}
+```
+
+**Issue with Current Implementation:**
+
+- The `car_waiting` thread enters a busy wait (`while` loop), which is inefficient and blocks the CPU.
+
+**Introducing Condition Variables:**
+
+Condition variables (`cond_fuel`) help optimize thread synchronization without busy waiting.
+
+- **Condition Variable Initialization:**
+
+```c
+pthread_cond_t cond_fuel = PTHREAD_COND_INITIALIZER;
+```
+
+**Modifying `car_waiting` with Condition Variables:**
+
+Replace the busy wait with `pthread_cond_wait`:
+- This allows the thread to wait efficiently until signaled by `fuel_filling`.
+
+```c
+void *car_waiting(void *arg) {
+    pthread_mutex_lock(&mutex_fuel);
+    while (fuel < 40) {
+        printf("No fuel, waiting...\n");
+        pthread_cond_wait(&cond_fuel, &mutex_fuel);
+    }
+    fuel -= 40;
+    printf("Got fuel, remaining: %d\n", fuel);
+    pthread_mutex_unlock(&mutex_fuel);
+    return NULL;
+}
+```
+
+**Signaling the Condition:**
+
+After each fuel increment in `fuel_filling`, signal waiting threads to check the condition again.
+
+```c
+void *fuel_filling(void *arg) {
+    for (int i = 0; i < 5; ++i) {
+        pthread_mutex_lock(&mutex_fuel);
+        fuel += 15;
+        printf("Filling fuel: %d\n", fuel);
+        pthread_cond_signal(&cond_fuel);
+        pthread_mutex_unlock(&mutex_fuel);
+        sleep(1); // Simulating a break after each fill
+    }
+    return NULL;
+}
+```
+
+**Conclusion:**
+
+Condition variables provide a mechanism for threads to efficiently wait for specific conditions rather than busy-waiting, enhancing synchronization in multi-threaded programming.
+
+---
+
+**Code Implementation:**
+
+```c
+#include <stdio.h>
+#include <pthread.h>
+#include <unistd.h>
+
+pthread_mutex_t mutex_fuel = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t cond_fuel = PTHREAD_COND_INITIALIZER;
+int fuel = 0;
+
+void *fuel_filling(void *arg) {
+    for (int i = 0; i < 5; ++i) {
+        pthread_mutex_lock(&mutex_fuel);
+        fuel += 15;
+        printf("Filling fuel: %d\n", fuel);
+        pthread_cond_signal(&cond_fuel);
+        pthread_mutex_unlock(&mutex_fuel);
+        sleep(1); // Simulating a break after each fill
+    }
+    return NULL;
+}
+
+void *car_waiting(void *arg) {
+    pthread_mutex_lock(&mutex_fuel);
+    while (fuel < 40) {
+        printf("No fuel, waiting...\n");
+        pthread_cond_wait(&cond_fuel, &mutex_fuel);
+    }
+    fuel -= 40;
+    printf("Got fuel, remaining: %d\n", fuel);
+    pthread_mutex_unlock(&mutex_fuel);
+    return NULL;
+}
+
+int main() {
+    pthread_t threads[2];
+
+    for (int i = 0; i < 2; ++i) {
+        if (i == 0)
+            pthread_create(&threads[i], NULL, fuel_filling, NULL);
+        else
+            pthread_create(&threads[i], NULL, car_waiting, NULL);
+    }
+
+    for (int i = 0; i < 2; ++i) {
+        pthread_join(threads[i], NULL);
+    }
+
+    return 0;
+}
+```
+
+**Summary:**
+
+Condition variables provide a powerful tool for managing synchronization in multi-threaded applications, allowing threads to efficiently wait for specific conditions to be met without wasting CPU cycles. Understanding their usage is crucial for effective concurrent programming in C.
