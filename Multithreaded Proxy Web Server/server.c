@@ -22,6 +22,12 @@
 
 // we define a constant, max no of clients that can reques the server at once
 #define MAX_CLIENTS 10
+#define MAX_BYTES 4096
+#define MAX_SIZE 200*(1<<20)     
+//size of the cache , 1<<20 is equivalent to 2^20 = 1MB
+// so the max cache size is 200MB
+#define MAX_ELEMENT_SIZE 10*(1<<20)     
+// and hence max size of an element in cache is 10MB
 
 struct cache 
 {
@@ -45,7 +51,7 @@ struct cache
 
 //method to traverse linked list for finding a matching URL
 
-cache* find(char* url);
+struct cache* find(char* url);
 
 // add to our cache a new node when cache miss
 int add_to_cache(char* data,int size,char* url);
@@ -71,6 +77,8 @@ pthread_mutex_t lock;
 //cache linked list head and size
 struct cache* head;
 int cache_size;
+int bytes_send_client;
+size_t len;
 
 int main(int argc, char *argv[])
 {
@@ -110,11 +118,11 @@ int main(int argc, char *argv[])
         // atoi converts the string argument
 
     } else {
-        printf("Too few arguments");
+        perror("Too few arguments");
         exit(1);
     }
 
-    printf("Starting Proxy server at port: %d\n", port_no);
+    perror("Starting Proxy server at port: %d\n", port_no);
 
     // socket() is the function used to create a socket. The function takes parameters specifying the address family (e.g., `AF_INET` for IPv4), socket type (e.g., `SOCK_STREAM` for TCP), and protocol (usually 0 to use the default)
 
@@ -186,10 +194,10 @@ int main(int argc, char *argv[])
 
 	// By typecasting &server_addr to (struct sockaddr*), you are effectively converting the specific address structure (struct sockaddr_in or similar) into the more general struct sockaddr type. This allows you to pass it to functions that operate with struct sockaddr pointers.
 
-    printf("Binding on port %d\n", port_no);
+    perror("Binding on port %d\n", port_no);
 
     // when you call listen(), the socket enters a state where it is waiting for other clients to connect to it.
-    int listen_status = listen(proxy_socket_id, MAX_CLIENTS);
+    int listen_status = listen(socket_id, MAX_CLIENTS);
     // the second parameter here is the Backlog Parameter: This parameter specifies how many connection requests can be waiting in a queue if the server is too busy to handle them immediately, in this case, MAX_CLIENTS
 
     if (listen_status < 0){
@@ -217,7 +225,7 @@ int main(int argc, char *argv[])
             (socklen_t *)&client_addr
         );
         if(client_socket_id < 0){
-            printf("Not able to connect");
+            perror("Not able to connect");
             exit(1);
         } 
         else {
@@ -226,19 +234,38 @@ int main(int argc, char *argv[])
         }
 
     struct sockaddr_in* client_pt = (struct sockaddr_in *)&client_addr;
+    // To access specific information about the client (like IP address and port), you cast client_addr to struct sockaddr_in*, which is a more specific structure that contains the client’s address information.
         // Extract the client address from whichever socket that was opened
         struct in_addr ip_addr = client_pt -> sin_addr;
+
+        // declares a character array to hold the human-readable string representation of the IP address. INET_ADDRSTRLEN
         char str[INET_ADDRSTRLEN];
-        // The function converts the address from network format to presentation
-        // format. Returns null if system error occurs.
+
+
+        // inet_ntop is a function that converts the IP address from network format (binary) to presentation format (string).
+        // Returns null if system error occurs.
         inet_ntop(AF_INET, &ip_addr, str, INET_ADDRSTRLEN);
-        printf("Client is connected with port number %d and ip address is %s\n",
+
+
+        perror("Client is connected with port number %d and ip address is %s\n",
                ntohs(client_addr.sin_port), str);
 
         // All connections are open and have been accepted by the client
         // Provide a socket to the thread so that other clients can come and 
         // then a new socket is created and given to them.
-        pthread_create(&tid[i], NULL, thread_fn, (void *)&Connected_socket_id[i]);
+        pthread_create(
+        	&tid[i], 
+        	NULL, 
+        	thread_fn, 
+        	(void *)&Connected_socket_id[i]);
+
+        // creates a new thread. &tid[i] is a pointer to the thread identifier. NULL specifies default thread attributes. thread_fn is the function that the new thread will execute. (void *)&Connected_socketId[i] is the argument passed to thread_fn, which is the identifier of the connected socket.
+
         i++; 
+         // increments the index i, preparing for the next connection.
+    }
+    // Deallocate the socket memory
+    close(proxy_socketId);
+    return 1;    
 }
 
