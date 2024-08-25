@@ -14,6 +14,8 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <time.h>
+#include "handle_request.h"
+
 
 // we define a constant, max no of clients that can request the server at once
 #define MAX_CLIENTS 10
@@ -152,7 +154,8 @@ void* handle_client(void* socket_fd) {
         return NULL;
     }
 
-    if (ParsedRequest_create(request) < 0) {
+    request = ParsedRequest_create();
+    if (request == NULL) {
         perror("Failed to initialize ParsedRequest");
         sendErrorMessage(client_socket, 500);
         free(request);
@@ -160,6 +163,7 @@ void* handle_client(void* socket_fd) {
         sem_post(&semaphore);
         return NULL;
     }
+
 
     char* request_buffer = (char*)malloc(MAX_BYTES);
     if (request_buffer == NULL) {

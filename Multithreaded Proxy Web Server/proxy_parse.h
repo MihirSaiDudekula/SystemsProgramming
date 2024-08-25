@@ -54,6 +54,7 @@ struct ParsedHeader {
     size_t valuelen;
 };
 
+
 /*
  * Create an empty parsing object to be used exactly once for parsing a single 
  * request buffer. 
@@ -83,7 +84,7 @@ size_t ParsedRequest_unparse_headers(struct ParsedRequest* pr, char* buf,
 size_t ParsedRequest_totalLen(struct ParsedRequest* pr);
 
 // 
-size_t ParsedHeader_headersLen(struct ParsedHeader* pr);
+// size_t ParsedHeader_headersLen(struct ParsedHeader* pr);
 
 // SET, GET and REMOVE NULL-terminated header keys and values
 int ParsedHeader_set(struct ParsedRequest* pr, const char* key, 
