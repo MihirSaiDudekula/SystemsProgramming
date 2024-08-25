@@ -10,8 +10,8 @@ boolean test_and_set(boolean *target) {
 }
 
 do {
-    while (test_and_set(&lock))
-//         ; /* do nothing */
+    while (test_and_set(&lock));
+//          /* do nothing */
 
 
 //     test_and_set(&lock) is a function that atomically tests the value of lock and sets it to TRUE (or 1 in boolean context).

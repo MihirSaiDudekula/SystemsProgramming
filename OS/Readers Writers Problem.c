@@ -64,10 +64,10 @@ void* reader(void* arg) {
         sem_wait(&mutex); // Wait to enter critical section for updating readcount
         readcount++; // Increment readcount
 
-        if (readcount == 1) // If this is the first reader
+        if (readcount == 1) // If there is even 1 reader, writing process should be locked
             sem_wait(&wrt); // Wait to enter critical section
 
-        sem_post(&mutex); // Signal to leave critical section for updating readcount
+        sem_post(&mutex); // Signal to leave critical section for updating readcount. mutal exclusion was ensured when readcount is incremented due to mutex
 
         // Reading is performed
         printf("Reader %d is reading\n", id);

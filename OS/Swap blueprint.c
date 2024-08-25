@@ -1,5 +1,6 @@
 void Swap(boolean *a, boolean *b)
 {
+    //this is basically swapping using calll-by-reference
     boolean temp = *a;
     *a= *b;
     *b = temp;

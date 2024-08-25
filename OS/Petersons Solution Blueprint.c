@@ -9,9 +9,12 @@ do {
     // turn variable is the tiebreaker/deciding factor for 
     // which processes' turn it is to go in critical section now
     // it can either be process 1(i) or process 2(j) but not both
+    // this is kind of just assuming its the other guys turn and us not going, kind of like an older sibling allowing his younger one to proceed before him
+
     while (flag[j] && turn == j);
     //if process j is willing to enter CS and it is j's turn to enter,
     // then process i must wait until j finishes, hence an infinite while loop here
+    //this is like saying, though we give younger sibling the chance to go fist, he will go only if he is willing to go. if he isnt, then the older brother is free to make the move
 
     //if we reach here (outside the infinite loop)
     // then it means j was either not willing or it wasnt j's turn
