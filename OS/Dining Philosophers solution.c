@@ -64,6 +64,7 @@ void pick_chopsticks(int philosopher_number) {
     }
 }
 
+
 void put_chopsticks(int philosopher_number) {
     sem_post(&chopstick[philosopher_number]);
     sem_post(&chopstick[(philosopher_number + 1) % N]);
